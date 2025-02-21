@@ -9,6 +9,7 @@ from user.models import SupplierQuoteEntry  # Assuming you have a Quote model
 import json 
 from asgiref.sync import sync_to_async, async_to_sync
 from channels.layers import get_channel_layer
+from user.models import ExtendedUser
 
 def get_user_role(user):
     """Determines the role of the user (client or supplier)"""
@@ -47,9 +48,6 @@ def send_message_notification(message):
     """Send WebSocket notification for new messages"""
     channel_layer = get_channel_layer()
     
-    # Get all participants except the sender
-    recipients = message.conversation.participants.exclude(pk=message.sender.id)
-    
     # Prepare message data
     message_data = {
         'id': message.id,
@@ -63,7 +61,21 @@ def send_message_notification(message):
         'is_read': message.is_read,
     }
     
-    # Send to each recipient's personal channel
+    # Send to conversation-specific group channel
+    conversation_group = f"chat_{message.conversation.id}"
+    print(f"Sending message to group: {conversation_group}")
+    
+    async_to_sync(channel_layer.group_send)(
+        conversation_group,
+        {
+            'type': 'new_message',
+            'message': message_data,
+            'conversation_id': str(message.conversation.id)
+        }
+    )
+    
+    # Also send to each recipient's personal channel for notifications
+    recipients = message.conversation.participants.exclude(pk=message.sender.id)
     for recipient in recipients:
         async_to_sync(channel_layer.group_send)(
             f"user_{recipient.id}",
@@ -72,7 +84,7 @@ def send_message_notification(message):
                 'message': message_data
             }
         )
-
+        
 def create_conversation_for_quote(quote, client, supplier):
     """Create a new conversation between a client and supplier for a quote"""
     conversation = Conversation.objects.create()
@@ -104,7 +116,6 @@ def api_create_conversation(request):
     """API endpoint to create a new conversation"""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    
     try:
         data = json.loads(request.body)
         participant_id = data.get('participant_id')
@@ -115,8 +126,8 @@ def api_create_conversation(request):
         
         # Get the other participant
         try:
-            participant = User.objects.get(id=participant_id)
-        except User.DoesNotExist:
+            participant = ExtendedUser.objects.get(id=participant_id)
+        except ExtendedUser.DoesNotExist:
             return JsonResponse({'error': 'User not found'}, status=404)
         
         # Check if a conversation already exists between these users

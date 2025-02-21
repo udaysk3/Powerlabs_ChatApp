@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Create new WebSocket connection with a proper protocol
         const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-        const wsUrl = wsProtocol + '127.0.0.1:8000/ws/chat/' + conversationId + '/';
+        const wsUrl = wsProtocol + '127.0.0.1:8081/ws/chat/' + conversationId + '/';
         
         try {
             chatSocket = new WebSocket(wsUrl);
@@ -53,12 +53,18 @@ document.addEventListener('DOMContentLoaded', function() {
             
             chatSocket.onmessage = function(e) {
                 try {
+                    console.log("Received WebSocket message:", e.data);
                     const data = JSON.parse(e.data);
                     if (data.type === 'new_message' && data.conversation_id == currentConversation) {
                         appendMessage(data.message);
                         scrollToBottom();
                     } else if (data.type === 'new_message' && data.conversation_id != currentConversation) {
                         // Update conversation list to show unread message
+                        console.log('Received message for different conversation:', data.conversation_id);
+                        updateConversationUnread(data.conversation_id);
+                    }
+                    else{
+                        console.log('Received message for no conversation:', data.conversation_id);
                         updateConversationUnread(data.conversation_id);
                     }
                 } catch (error) {
@@ -176,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     conversationItem.innerHTML = `
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                ${nameDisplay}
+                                <h6 style="color:#000"> ${nameDisplay} </h6>
                                 <div class="text-muted">${subtitleDisplay}</div>
                                 <small class="last-message-time">${lastMessageTime}</small>
                             </div>
@@ -537,6 +543,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="text-muted">${subtitleDisplay}</div>
                                 <small class="last-message-time">${lastMessageTime}</small>
                             </div>
+                            
                             ${conversation.unread_count > 0 ? 
                                 `<span class="unread-badge">${conversation.unread_count}</span>` : ''}
                         </div>
@@ -605,28 +612,102 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Function to update unread status in conversation list
     function updateConversationUnread(conversationId) {
-        const conversationItem = document.querySelector(`.conversation-item[data-id="${conversationId}"]`);
-        if (conversationItem) {
-            conversationItem.classList.add('unread');
-            
-            // Update or add unread badge
-            let badge = conversationItem.querySelector('.unread-badge');
-            if (badge) {
-                badge.textContent = parseInt(badge.textContent) + 1;
-            } else {
-                const badgeContainer = document.createElement('span');
-                badgeContainer.className = 'unread-badge';
-                badgeContainer.textContent = '1';
-                const flexContainer = conversationItem.querySelector('.d-flex');
-                if (flexContainer) {
-                    flexContainer.appendChild(badgeContainer);
+        // Fetch all unread counts from the server
+        console.log('Updating unread counts...');
+        fetch('/chat/api/unread-counts/')
+            .then(response => response.json())
+            .then(unreadCounts => {
+                console.log("unread counts", unreadCounts);
+                // Update the specific conversation that just received a message
+                const conversationItem = document.querySelector(`.conversation-item[data-id="${conversationId}"]`);
+                if (conversationItem) {
+                    conversationItem.classList.add('unread');
+                    // Get accurate count from server response
+                    const unreadCount = unreadCounts[conversationId] || 0;
+                    
+                    // Update or add unread badge
+                    let badge = conversationItem.querySelector('.unread-badge');
+                    if (badge) {
+                        badge.textContent = unreadCount;
+                    } else if (unreadCount > 0) {
+                        const badgeContainer = document.createElement('span');
+                        badgeContainer.className = 'unread-badge';
+                        badgeContainer.textContent = unreadCount;
+                        const flexContainer = conversationItem.querySelector('.d-flex');
+                        if (flexContainer) {
+                            flexContainer.appendChild(badgeContainer);
+                        }
+                    }
                 }
-            }
-        }
+                
+                // Also update any other conversations that might have unread messages
+                Object.entries(unreadCounts).forEach(([convId, count]) => {
+                    if (convId != conversationId && count > 0) {
+                        const otherConvItem = document.querySelector(`.conversation-item[data-id="${convId}"]`);
+                        if (otherConvItem) {
+                            otherConvItem.classList.add('unread');
+                            let otherBadge = otherConvItem.querySelector('.unread-badge');
+                            if (otherBadge) {
+                                otherBadge.textContent = count;
+                            } else {
+                                const newBadge = document.createElement('span');
+                                newBadge.className = 'unread-badge';
+                                newBadge.textContent = count;
+                                const flexDiv = otherConvItem.querySelector('.d-flex');
+                                if (flexDiv) {
+                                    flexDiv.appendChild(newBadge);
+                                }
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching unread counts:', error);
+            });
     }
-    
-    // Initialize
-    loadConversations();
+
+    // Function to periodically refresh unread counts
+function refreshUnreadCounts() {
+    console.log('Refreshing unread counts...');
+    fetch('/chat/api/unread-counts/')
+        .then(response => response.json())
+        .then(unreadCounts => {
+            Object.entries(unreadCounts).forEach(([convId, count]) => {
+                const convItem = document.querySelector(`.conversation-item[data-id="${convId}"]`);
+                if (convItem && count > 0) {
+                    convItem.classList.add('unread');
+                    let badge = convItem.querySelector('.unread-badge');
+                    if (badge) {
+                        badge.textContent = count;
+                    } else {
+                        const newBadge = document.createElement('span');
+                        newBadge.className = 'unread-badge';
+                        newBadge.textContent = count;
+                        const flexDiv = convItem.querySelector('.d-flex');
+                        if (flexDiv) {
+                            flexDiv.appendChild(newBadge);
+                        }
+                    }
+                } else if (convItem && count === 0) {
+                    convItem.classList.remove('unread');
+                    const badge = convItem.querySelector('.unread-badge');
+                    if (badge) {
+                        badge.remove();
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error refreshing unread counts:', error);
+        });
+}
+
+// Add this to your initialization code
+loadConversations();
+refreshUnreadCounts(); // Initial refresh
+
+// Set up periodic refresh of unread counts (every 30 seconds)
+const unreadRefreshInterval = setInterval(refreshUnreadCounts, 30000);
 });
