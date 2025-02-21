@@ -1,0 +1,128 @@
+/* messaging.css */
+body {
+    overflow-x: hidden;
+}
+
+/* Left Column */
+.conversation-list-column {
+    border-right: 1px solid #eee;
+    height: calc(100vh - 56px);
+    overflow-y: auto;
+}
+
+.conversation-item {
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: background-color 0.2s;
+}
+
+.conversation-item:hover {
+    background-color: #f8f9fa;
+}
+
+.conversation-item.active {
+    border-left-color: #007bff;
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.conversation-item.unread {
+    background-color: rgba(0, 123, 255, 0.1);
+    font-weight: 500;
+}
+
+.conversation-item .unread-badge {
+    background-color: #007bff;
+    color: rgb(31, 30, 30);
+    border-radius: 50%;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+.last-message-time {
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+/* Middle Column */
+.chat-window-column {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 56px);
+    border-right: 1px solid #eee;
+}
+
+#chat-header {
+    padding: 1rem;
+    border-bottom: 1px solid #eee;
+}
+
+.messages-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.message {
+    max-width: 75%;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    border-radius: 1rem;
+    position: relative;
+}
+
+.message-sender {
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.message-timestamp {
+    font-size: 0.7rem;
+    color: #6c757d;
+    position: absolute;
+    bottom: 0.25rem;
+    right: 0.75rem;
+}
+
+.message.outgoing {
+    align-self: flex-end;
+    background-color: #007bff;
+    color: rgb(7, 7, 7);
+}
+
+.message.incoming {
+    align-self: flex-start;
+    background-color: #f1f1f1;
+}
+
+.message-input-container {
+    padding: 1rem;
+    border-top: 1px solid #eee;
+}
+
+/* Right Column */
+.context-column {
+    height: calc(100vh - 56px);
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+#company-logo {
+    width: 80px;
+    height: 80px;
+    background-color: #f1f1f1;
+    border-radius: 4px;
+}
+
+#rating-stars .fa-star {
+    color: #ffc107;
+}
+
+#rating-stars .fa-star-half-alt {
+    color: #ffc107;
+}
+
+#quote-summary dt {
+    font-weight: 500;
+}
