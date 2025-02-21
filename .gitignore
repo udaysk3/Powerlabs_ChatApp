@@ -1,0 +1,6 @@
+static/*
+staticfiles/*
+*.pyc
+media/*
+db.sqlite3
+.env
